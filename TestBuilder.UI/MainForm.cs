@@ -35,6 +35,7 @@ public sealed class MainForm : Form
     private readonly ToolStripButton _saveButton;
     private readonly ToolStripButton _runButton;
     private readonly ToolStripButton _stopButton;
+    private readonly ToolStripButton _variablesButton;
     private readonly ToolStripButton _exportButton;
     private readonly ToolStripButton _undoButton;
     private readonly ToolStripButton _redoButton;
@@ -59,6 +60,9 @@ public sealed class MainForm : Form
     private bool _isRefreshingList;
     private CancellationTokenSource? _cts;
     private RunReport? _lastReport;
+    private IReadOnlyDictionary<string, object> _lastVariables =
+        new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+    private VariablesForm? _variablesForm;
     private Guid? _pendingSelection;
 
     /// <summary>
@@ -100,6 +104,10 @@ public sealed class MainForm : Form
         _saveButton = CreateToolButton("Сохранить", "Сохранить сценарий (Ctrl+S)", OnSaveClick);
         _runButton = CreateToolButton("Запустить", "Запустить сценарий (F5)", OnRunClick);
         _stopButton = CreateToolButton("Стоп", "Остановить выполнение (Esc)", OnStopClick);
+        _variablesButton = CreateToolButton(
+            "Переменные",
+            "Показать сохранённые переменные",
+            OnVariablesClick);
         _exportButton = CreateToolButton("Экспорт отчёта", "Экспортировать последний отчёт", OnExportClick);
         _undoButton = CreateToolButton("Отменить", "Отменить последнее действие", OnUndoClick);
         _redoButton = CreateToolButton("Повторить", "Повторить отменённое действие", OnRedoClick);
@@ -112,6 +120,7 @@ public sealed class MainForm : Form
             new ToolStripSeparator(),
             _runButton,
             _stopButton,
+            _variablesButton,
             new ToolStripSeparator(),
             _exportButton,
             new ToolStripSeparator(),
@@ -566,6 +575,7 @@ public sealed class MainForm : Form
         _undoStack.Clear();
         _inspector.Bind(null);
         _logGrid.Rows.Clear();
+        SetSavedVariables(null);
         RefreshBlockList();
         UpdateTitle();
         UpdateCommandStates();
@@ -599,6 +609,7 @@ public sealed class MainForm : Form
             _lastReport = null;
             _undoStack.Clear();
             _logGrid.Rows.Clear();
+            SetSavedVariables(null);
             RefreshBlockList();
             UpdateTitle();
             UpdateCommandStates();
@@ -684,6 +695,7 @@ public sealed class MainForm : Form
         _logGrid.Rows.Clear();
         _lastReport = null;
         _exportButton.Enabled = false;
+        SetSavedVariables(null);
 
         _cts = new CancellationTokenSource();
         var cts = _cts;
@@ -699,10 +711,11 @@ public sealed class MainForm : Form
             BeginInvoke(new Action(() => UpdateProgress(step)));
         });
 
+        TestBuilder.Core.Execution.ExecutionContext? executionContext = null;
         try
         {
-            var context = await _contextFactory.CreateAsync(_scenario, cts.Token);
-            _lastReport = await _runner.RunAsync(_scenario, context, progress);
+            executionContext = await _contextFactory.CreateAsync(_scenario, cts.Token);
+            _lastReport = await _runner.RunAsync(_scenario, executionContext, progress);
             _logger.LogInformation(
                 "Сценарий '{Name}' завершён. Успех: {Passed}.",
                 _scenario.Name,
@@ -720,6 +733,11 @@ public sealed class MainForm : Form
         }
         finally
         {
+            if (executionContext is not null)
+            {
+                SetSavedVariables(executionContext.Variables);
+            }
+
             if (ReferenceEquals(_cts, cts))
             {
                 _cts = null;
@@ -739,6 +757,29 @@ public sealed class MainForm : Form
     {
         _cts?.Cancel();
         _stopButton.Enabled = false;
+    }
+
+    private void OnVariablesClick(object? sender, EventArgs e)
+    {
+        if (_variablesForm is { IsDisposed: false })
+        {
+            _variablesForm.Activate();
+            return;
+        }
+
+        _variablesForm = new VariablesForm();
+        _variablesForm.FormClosed += (_, _) => _variablesForm = null;
+        _variablesForm.UpdateVariables(_lastVariables);
+        _variablesForm.Show(this);
+    }
+
+    private void SetSavedVariables(IReadOnlyDictionary<string, object>? variables)
+    {
+        _lastVariables = variables is null
+            ? new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
+            : new Dictionary<string, object>(variables, StringComparer.OrdinalIgnoreCase);
+
+        _variablesForm?.UpdateVariables(_lastVariables);
     }
 
     private void OnExportClick(object? sender, EventArgs e)
