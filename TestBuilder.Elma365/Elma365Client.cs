@@ -124,6 +124,18 @@ public sealed class Elma365Client
         ArgumentException.ThrowIfNullOrWhiteSpace(appCode);
         ArgumentException.ThrowIfNullOrWhiteSpace(filterBody);
 
+        try
+        {
+            _ = JObject.Parse(filterBody);
+        }
+        catch (JsonException ex)
+        {
+            throw new Elma365Exception(
+                "Тело фильтра Elma365 не является корректным JSON-объектом. " +
+                "Проверьте фигурные скобки и кавычки вокруг JSON-фрагментов {$...}.",
+                ex);
+        }
+
         var path = $"{ApiPrefix}/{Escape(appNamespace)}/{Escape(appCode)}/list";
         var body = await PostJsonAsync(path, filterBody, ct).ConfigureAwait(false);
         return ExtractSingleObject(body, path);
@@ -310,21 +322,65 @@ public sealed class Elma365Client
             return TakeFirstObject(array, path);
         }
 
-        if (token is JObject jsonObject)
+        if (token is not JObject jsonObject)
         {
-            foreach (var propertyName in new[] { "items", "result", "data" })
+            throw new Elma365Exception(
+                $"Elma365 вернул JSON, не являющийся объектом или массивом объектов, для '{path}'.");
+        }
+
+        if (jsonObject["success"] is JValue { Type: JTokenType.Boolean } success &&
+            !success.Value<bool>())
+        {
+            var error = jsonObject.Value<string>("error") ?? "без текста ошибки";
+            throw new Elma365Exception($"Elma365 вернул success=false: {error}");
+        }
+
+        if (jsonObject.Property("result", StringComparison.OrdinalIgnoreCase)?.Value is JObject resultObject)
+        {
+            if (IsZeroTotal(resultObject["total"]))
             {
-                if (jsonObject.Property(propertyName, StringComparison.OrdinalIgnoreCase)?.Value is JArray items)
+                throw new Elma365NotFoundException(
+                    $"Elma365 не вернул объектов по фильтру для '{path}' (result.total = 0).",
+                    200,
+                    body);
+            }
+
+            foreach (var propertyName in new[] { "result", "items", "data" })
+            {
+                if (resultObject.Property(propertyName, StringComparison.OrdinalIgnoreCase)?.Value is JArray items)
                 {
                     return TakeFirstObject(items, path);
                 }
             }
 
-            return jsonObject;
+            throw new Elma365Exception(
+                $"Ответ Elma365 для '{path}' не содержит result.result[].");
         }
 
-        throw new Elma365Exception(
-            $"Elma365 вернул JSON, не являющийся объектом или массивом объектов, для '{path}'.");
+        foreach (var propertyName in new[] { "items", "result", "data" })
+        {
+            if (jsonObject.Property(propertyName, StringComparison.OrdinalIgnoreCase)?.Value is JArray items)
+            {
+                return TakeFirstObject(items, path);
+            }
+        }
+
+        if (IsZeroTotal(jsonObject["total"]))
+        {
+            throw new Elma365NotFoundException(
+                $"Elma365 не вернул объектов по фильтру для '{path}' (total = 0).",
+                200,
+                body);
+        }
+
+        return jsonObject;
+    }
+
+    private static bool IsZeroTotal(JToken? totalToken)
+    {
+        return totalToken is not null &&
+               long.TryParse(totalToken.ToString(), out var total) &&
+               total == 0;
     }
 
     private JObject TakeFirstObject(JArray array, string path)

@@ -246,6 +246,48 @@ public sealed class ApiRequestBlockTests
     }
 
     [Fact]
+    public async Task SaveResponseVariable_CanBeUsedAsJsonFragmentInNextRequest()
+    {
+        using var server = WireMockServer.Start();
+        server.Given(Request.Create().WithPath("/response-source").UsingGet())
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody("""{"id":42,"name":"Ann"}"""));
+        server.Given(
+                Request.Create()
+                    .WithPath("/response-target")
+                    .UsingPost()
+                    .WithBody("""{"id":42}"""))
+            .RespondWith(Response.Create().WithStatusCode(200));
+
+        using var httpClient = new HttpClient();
+        var context = CreateContext(httpClient);
+        var source = new ApiRequestBlock
+        {
+            Url = BaseUrl(server) + "/response-source",
+            SaveResponseVariable = "lastResponse",
+            TimeoutSeconds = 10,
+        };
+
+        var sourceResult = await source.ExecuteAsync(context);
+        sourceResult.Success.Should().BeTrue(sourceResult.Message);
+
+        var target = new ApiRequestBlock
+        {
+            Method = HttpMethodType.Post,
+            Url = BaseUrl(server) + "/response-target",
+            BodyType = HttpBodyType.Json,
+            Body = """{"id":{$lastResponse.id}}""",
+            TimeoutSeconds = 10,
+        };
+
+        var targetResult = await target.ExecuteAsync(context);
+        targetResult.Success.Should().BeTrue(targetResult.Message);
+    }
+
+    [Fact]
     public async Task SaveRequestJson_IsAvailableForJsonFragmentsInNextBlock()
     {
         const string expectedBody = """{"copied":{"name":"Ann"},"name":"Ann"}""";

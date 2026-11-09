@@ -169,6 +169,74 @@ public sealed class Elma365ClientTests
         result.Value<string>("id").Should().Be("first");
     }
 
+    [Fact]
+    public async Task FindObjectAsync_ByFilter_ReadsNestedResultAndTotal()
+    {
+        const string filter = """{"filter":{"tf":{"status":"active"}}}""";
+
+        using var server = WireMockServer.Start();
+        server.Given(
+                Request.Create()
+                    .WithPath("/pub/v1/app/orders/order/list")
+                    .UsingPost()
+                    .WithBody(filter))
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody(
+                        """{"success":true,"result":{"result":[{"id":"nested","status":"active"}],"total":1}}"""));
+
+        using var httpClient = new HttpClient();
+        var client = CreateClient(server, httpClient);
+
+        var result = await client.FindObjectAsync("orders", "order", filter, CancellationToken.None);
+
+        result.Value<string>("id").Should().Be("nested");
+    }
+
+    [Fact]
+    public async Task FindObjectAsync_WhenResultTotalZero_ThrowsNotFound()
+    {
+        const string filter = """{"filter":{"tf":{"status":"missing"}}}""";
+
+        using var server = WireMockServer.Start();
+        server.Given(
+                Request.Create()
+                    .WithPath("/pub/v1/app/orders/order/list")
+                    .UsingPost())
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody(
+                        """{"success":true,"result":{"result":[],"total":0}}"""));
+
+        using var httpClient = new HttpClient();
+        var client = CreateClient(server, httpClient);
+
+        Func<Task> action = () => client.FindObjectAsync("orders", "order", filter, CancellationToken.None);
+
+        await action.Should().ThrowAsync<Elma365NotFoundException>();
+    }
+
+    [Fact]
+    public async Task FindObjectAsync_WithInvalidJson_ThrowsClearException()
+    {
+        using var server = WireMockServer.Start();
+        using var httpClient = new HttpClient();
+        var client = CreateClient(server, httpClient);
+
+        Func<Task> action = () => client.FindObjectAsync(
+            "orders",
+            "order",
+            """{"filter":{"tf":{"package":["{$request.package_id}}"}}""",
+            CancellationToken.None);
+
+        var exception = await action.Should().ThrowAsync<Elma365Exception>();
+        exception.Which.Message.Should().Contain("не является корректным JSON");
+    }
+
     private static Elma365Client CreateClient(
         WireMockServer server,
         HttpClient httpClient,

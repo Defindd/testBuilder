@@ -269,6 +269,40 @@ public sealed class CheckDataBlockTests
         result.Success.Should().BeTrue(result.Message);
     }
 
+    [Fact]
+    public async Task ByFilter_WhenResultTotalIsZero_ReturnsFailure()
+    {
+        const string filter = """{"filter":{"tf":{"status":"missing"}}}""";
+
+        using var server = WireMockServer.Start();
+        server.Given(
+                Request.Create()
+                    .WithPath("/pub/v1/app/orders/order/list")
+                    .UsingPost()
+                    .WithBody(filter))
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody(
+                        """{"success":true,"result":{"result":[],"total":0}}"""));
+
+        using var httpClient = new HttpClient();
+        var block = new CheckDataBlock
+        {
+            BaseUrl = BaseUrl(server),
+            AppNamespace = "orders",
+            AppCode = "order",
+            SearchMode = CheckDataSearchMode.ByFilter,
+            Filter = filter,
+        };
+
+        var result = await block.ExecuteAsync(CreateContext(httpClient, CreateVariables()));
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Contain("не найден");
+    }
+
     private static void MockObject(
         WireMockServer server,
         string objectId,
