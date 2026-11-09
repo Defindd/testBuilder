@@ -238,6 +238,37 @@ public sealed class CheckDataBlockTests
         serialized.Should().NotContain("\"objectType\"");
     }
 
+    [Fact]
+    public async Task DirectAuthToken_IsUsedWithoutVariable()
+    {
+        using var server = WireMockServer.Start();
+        server.Given(
+                Request.Create()
+                    .WithPath("/pub/v1/app/orders/order/42/get")
+                    .UsingGet()
+                    .WithHeader("Authorization", "Bearer direct-token"))
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(200)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody("""{"id":"42","status":"active"}"""));
+
+        using var httpClient = new HttpClient();
+        var block = new CheckDataBlock
+        {
+            BaseUrl = BaseUrl(server),
+            AppNamespace = "orders",
+            AppCode = "order",
+            AuthToken = "Bearer direct-token",
+            AuthTokenVariable = string.Empty,
+            ObjectId = "42",
+        };
+
+        var result = await block.ExecuteAsync(CreateContext(httpClient, CreateVariables()));
+
+        result.Success.Should().BeTrue(result.Message);
+    }
+
     private static void MockObject(
         WireMockServer server,
         string objectId,

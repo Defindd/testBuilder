@@ -56,33 +56,47 @@ public sealed class CheckDataBlock : ITestBlock, IValidatableBlock
     public string BaseUrl { get; set; } = string.Empty;
 
     /// <summary>
-    /// Имя переменной контекста с Bearer-токеном.
+    /// Bearer-токен Elma365. Если поле заполнено, имеет приоритет над переменной.
     /// </summary>
-    [BlockProperty("Переменная с токеном", 2)]
+    [BlockProperty(
+        "Токен Elma365",
+        2,
+        PropertyEditorType.Secret,
+        "Можно вставить токен напрямую или оставить пустым и использовать переменную.")]
+    public string AuthToken { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Имя переменной контекста с Bearer-токеном. Используется, если поле токена пустое.
+    /// </summary>
+    [BlockProperty(
+        "Переменная с токеном",
+        3,
+        PropertyEditorType.Auto,
+        "Используется, если поле «Токен Elma365» пустое. По умолчанию elmaToken.")]
     public string AuthTokenVariable { get; set; } = "elmaToken";
 
     /// <summary>
     /// Пространство имён приложения.
     /// </summary>
-    [BlockProperty("Пространство имён", 3)]
+    [BlockProperty("Пространство имён", 4)]
     public string AppNamespace { get; set; } = string.Empty;
 
     /// <summary>
     /// Код приложения.
     /// </summary>
-    [BlockProperty("Код приложения", 4)]
+    [BlockProperty("Код приложения", 5)]
     public string AppCode { get; set; } = string.Empty;
 
     /// <summary>
     /// Способ поиска: по ID или по фильтру.
     /// </summary>
-    [BlockProperty("Поиск", 5)]
+    [BlockProperty("Поиск", 6)]
     public CheckDataSearchMode SearchMode { get; set; } = CheckDataSearchMode.ByObjectId;
 
     /// <summary>
     /// Идентификатор объекта. Используется в режиме поиска по ID.
     /// </summary>
-    [BlockProperty("ID объекта", 6, PropertyEditorType.Auto, "Например: {{createdObjectId}}")]
+    [BlockProperty("ID объекта", 7, PropertyEditorType.Auto, "Например: {{createdObjectId}}")]
     public string ObjectId { get; set; } = string.Empty;
 
     /// <summary>
@@ -90,7 +104,7 @@ public sealed class CheckDataBlock : ITestBlock, IValidatableBlock
     /// </summary>
     [BlockProperty(
         "Фильтр",
-        7,
+        8,
         PropertyEditorType.MultilineText,
         "JSON-тело для POST /pub/v1/app/{namespace}/{code}/list")]
     public string Filter { get; set; } = string.Empty;
@@ -98,13 +112,13 @@ public sealed class CheckDataBlock : ITestBlock, IValidatableBlock
     /// <summary>
     /// Проверки полей объекта.
     /// </summary>
-    [BlockProperty("Проверки полей", 8, PropertyEditorType.JsonPathCheckTable)]
+    [BlockProperty("Проверки полей", 9, PropertyEditorType.JsonPathCheckTable)]
     public List<JsonPathCheck> FieldChecks { get; set; } = new();
 
     /// <summary>
     /// Имя переменной, в которую сохраняется полученный объект.
     /// </summary>
-    [BlockProperty("Сохранить объект в переменную", 9)]
+    [BlockProperty("Сохранить объект в переменную", 10)]
     public string SaveObjectVariable { get; set; } = string.Empty;
 
     /// <summary>
@@ -171,24 +185,35 @@ public sealed class CheckDataBlock : ITestBlock, IValidatableBlock
                 return Fail("Не задан фильтр для поиска объекта Elma365.", stopwatch.Elapsed);
             }
 
-            var tokenVariable = Resolve(ctx, AuthTokenVariable).Trim();
-            if (tokenVariable.Length == 0)
+            var authToken = Resolve(ctx, AuthToken).Trim();
+            if (authToken.Length == 0)
             {
-                tokenVariable = "elmaToken";
+                var tokenVariable = Resolve(ctx, AuthTokenVariable).Trim();
+                if (tokenVariable.Length == 0)
+                {
+                    tokenVariable = "elmaToken";
+                }
+
+                if (!ctx.Variables.TryGetValue(tokenVariable, out var tokenValue) ||
+                    string.IsNullOrWhiteSpace(tokenValue?.ToString()))
+                {
+                    return Fail(
+                        $"Токен Elma365 не задан: поле «Токен Elma365» пустое, а переменная '{tokenVariable}' не найдена или пуста.",
+                        stopwatch.Elapsed);
+                }
+
+                authToken = tokenValue!.ToString()!.Trim();
             }
 
-            if (!ctx.Variables.TryGetValue(tokenVariable, out var tokenValue) ||
-                string.IsNullOrWhiteSpace(tokenValue?.ToString()))
+            if (authToken.Length == 0)
             {
-                return Fail(
-                    $"Переменная '{tokenVariable}' с токеном Elma365 не найдена или пуста.",
-                    stopwatch.Elapsed);
+                return Fail("Токен Elma365 не задан.", stopwatch.Elapsed);
             }
 
             var client = new Elma365Client(
                 ctx.HttpClient,
                 baseUrl,
-                tokenValue!.ToString()!,
+                authToken,
                 ctx.Logger);
 
             var obj = SearchMode switch
@@ -344,9 +369,10 @@ public sealed class CheckDataBlock : ITestBlock, IValidatableBlock
             yield return "Фильтр обязателен для поиска по фильтру.";
         }
 
-        if (string.IsNullOrWhiteSpace(AuthTokenVariable))
+        if (string.IsNullOrWhiteSpace(AuthToken) &&
+            string.IsNullOrWhiteSpace(AuthTokenVariable))
         {
-            yield return "Не задано имя переменной с токеном Elma365.";
+            yield return "Задайте токен Elma365 или имя переменной с токеном.";
         }
     }
 

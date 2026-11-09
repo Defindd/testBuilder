@@ -619,17 +619,96 @@ public sealed class PropertyInspectorControl : UserControl
         editor.TextChanged += (_, _) => _errors.SetError(editor, string.Empty);
         editor.Leave += (_, _) =>
         {
-            if (!TimeSpan.TryParse(editor.Text, CultureInfo.InvariantCulture, out var parsed))
+            if (!TryParseDuration(editor.Text, out var parsed))
             {
-                _errors.SetError(editor, "Формат: hh:mm:ss или d.hh:mm:ss.");
+                _errors.SetError(editor, "Формат: секунды (60), 60с, mm:ss или hh:mm:ss.");
                 return;
             }
 
             _errors.SetError(editor, string.Empty);
+            editor.Text = parsed.ToString("c", CultureInfo.InvariantCulture);
             SetAndNotify(target, property, parsed);
         };
 
         return editor;
+    }
+
+    private static bool TryParseDuration(string text, out TimeSpan duration)
+    {
+        duration = default;
+        var value = text.Trim();
+        if (value.Length == 0)
+        {
+            return false;
+        }
+
+        var suffixes = new (string Suffix, double Seconds)[]
+        {
+            ("секунд", 1),
+            ("сек", 1),
+            ("с", 1),
+            ("s", 1),
+            ("минут", 60),
+            ("мин", 60),
+            ("м", 60),
+            ("m", 60),
+            ("часов", 3600),
+            ("час", 3600),
+            ("ч", 3600),
+            ("h", 3600),
+        };
+
+        foreach (var (suffix, secondsPerUnit) in suffixes)
+        {
+            if (!value.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var numberText = value[..^suffix.Length].Trim();
+            if (!TryParseNumber(numberText, out var amount))
+            {
+                return false;
+            }
+
+            return TryCreateDuration(amount * secondsPerUnit, out duration);
+        }
+
+        if (value.Contains(':'))
+        {
+            return TimeSpan.TryParse(value, CultureInfo.InvariantCulture, out duration);
+        }
+
+        return TryParseNumber(value, out var seconds) &&
+               TryCreateDuration(seconds, out duration);
+    }
+
+    private static bool TryParseNumber(string text, out double value)
+    {
+        return double.TryParse(
+                   text,
+                   NumberStyles.Float,
+                   CultureInfo.InvariantCulture,
+                   out value) ||
+               double.TryParse(
+                   text,
+                   NumberStyles.Float,
+                   CultureInfo.CurrentCulture,
+                   out value);
+    }
+
+    private static bool TryCreateDuration(double seconds, out TimeSpan duration)
+    {
+        try
+        {
+            duration = TimeSpan.FromSeconds(seconds);
+            return true;
+        }
+        catch (Exception ex) when (ex is OverflowException or ArgumentException)
+        {
+            duration = default;
+            return false;
+        }
     }
 
     private Control CreateKeyValueGrid(

@@ -8,8 +8,8 @@
 Проект реализован полностью, все 8 этапов завершены.
 
 - Solution собирается на .NET 8: **0 ошибок, 0 предупреждений**.
-- Кроссплатформенные тесты: `net8.0` — **60/60**.
-- Windows-тесты с UI smoke: `net8.0-windows` — **67/67**.
+- Кроссплатформенные тесты: `net8.0` — **61/61**.
+- Windows-тесты с UI smoke: `net8.0-windows` — **71/71**.
 - UI запускается и открывает главное окно.
 - CLI отрабатывает samples и возвращает корректный ExitCode.
 - `sample-simple-http`, `sample-with-wait` и `sample-json-variable` проверены через CLI: **exit 0**.
@@ -33,13 +33,13 @@
 
 ### Blocks
 
-- `WaitBlock`: Fixed и UntilCondition, джиттер, отмена, MaxWait.
+- `WaitBlock`: Fixed и UntilCondition, джиттер, отмена, MaxWait. Длительность в UI принимает `60`, `60с`, `1m`, `mm:ss`, `hh:mm:ss` и сохраняется после потери фокуса.
 - `ApiRequestBlock`: методы GET/POST/PUT/DELETE (dropdown), URL/query/headers/body, JSON/FormUrlEncoded/Raw, Basic/Bearer/ApiKeyHeader, timeout, JSONPath и `$status`, сохранение ответа.
 - Автоматический `Authorization` для Basic/Bearer; отдельный header не нужен.
 - Bearer-токен нормализуется: можно вставлять значение с префиксом `Bearer` или без него.
 - `SaveRequestJson` + JSON-фрагменты `{$requestJson.customer.name}`; сохранение после отправки, автодополнение всех полей (string/number/bool/object/array) в Body/Filter по JSON предыдущих API-блоков.
 - Генераторы `{{random.uuid}}`, `{{random.number}}`, `{{random.number:min:max}}` + кнопки UUID/Число в multiline-редакторе.
-- `CheckDataBlock`: Elma365, поиск по ID (`GET /{ns}/{code}/{id}/get`) или по фильтру (`POST /{ns}/{code}/list`), проверки полей, сохранение объекта.
+- `CheckDataBlock`: Elma365, прямое поле токена (Secret) с fallback на переменную, поиск по ID (`GET /{ns}/{code}/{id}/get`) или по фильтру (`POST /{ns}/{code}/list`), проверки полей, сохранение объекта.
 - Все три фабрики зарегистрированы в `AddBuiltInBlocks`.
 
 

@@ -77,6 +77,7 @@ public sealed class PropertyInspectorControlTests
             labels.Should().Contain("Код приложения");
             labels.Should().Contain("Поиск");
             labels.Should().Contain("Фильтр");
+            labels.Should().Contain("Токен Elma365");
             labels.Should().NotContain("Тип объекта");
 
             var search = GetEditor<ComboBox>(table, "Поиск");
@@ -157,6 +158,28 @@ public sealed class PropertyInspectorControlTests
         });
     }
 
+    [Theory]
+    [InlineData("60")]
+    [InlineData("60с")]
+    [InlineData("00:01:00")]
+    public void Bind_WaitBlock_DurationAcceptsSecondsAndPersists(string input)
+    {
+        RunOnSta(() =>
+        {
+            using var control = new PropertyInspectorControl();
+            var block = new WaitBlock();
+            control.Bind(block);
+
+            var table = control.Controls.OfType<TableLayoutPanel>().Single();
+            var duration = GetEditor<TextBox>(table, "Длительность");
+            duration.Text = input;
+            RaiseLeave(duration);
+
+            block.Duration.Should().Be(TimeSpan.FromMinutes(1));
+            duration.Text.Should().Be("00:01:00");
+        });
+    }
+
     private static T GetEditor<T>(TableLayoutPanel table, string labelText)
         where T : Control
     {
@@ -178,6 +201,13 @@ public sealed class PropertyInspectorControlTests
                 yield return descendant;
             }
         }
+    }
+
+    private static void RaiseLeave(Control control)
+    {
+        typeof(Control)
+            .GetMethod("OnLeave", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .Invoke(control, new object[] { EventArgs.Empty });
     }
 
     private static void RunOnSta(Action action)

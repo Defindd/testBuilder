@@ -16,6 +16,7 @@
       "title": "Проверить заказ в Elma365",
       "enabled": true,
       "baseUrl": "{{baseUrl}}",
+      "authToken": "",
       "authTokenVariable": "elmaToken",
       "appNamespace": "your_app",
       "appCode": "order",

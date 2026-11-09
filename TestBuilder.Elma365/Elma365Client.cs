@@ -72,8 +72,13 @@ public sealed class Elma365Client
 
         _httpClient = http;
         _baseUrl = baseUrl.TrimEnd('/');
-        _authToken = authToken;
+        _authToken = NormalizeToken(authToken);
         _logger = logger;
+
+        if (_authToken.Length == 0)
+        {
+            throw new ArgumentException("Токен Elma365 пуст.", nameof(authToken));
+        }
     }
 
     /// <summary>
@@ -160,6 +165,33 @@ public sealed class Elma365Client
             $"{ApiPrefix}/{Escape(appNamespace)}/{Escape(appCode)}/schema";
         var body = await GetStringAsync(path, ct).ConfigureAwait(false);
         return ParseObject(body, path);
+    }
+
+    private static string NormalizeToken(string token)
+    {
+        var normalized = token
+            .Replace("\r", string.Empty)
+            .Replace("\n", string.Empty)
+            .Trim();
+
+        if (normalized.StartsWith("Authorization:", StringComparison.OrdinalIgnoreCase))
+        {
+            normalized = normalized["Authorization:".Length..].Trim();
+        }
+
+        if (normalized.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+        {
+            normalized = normalized["Bearer ".Length..].Trim();
+        }
+
+        if (normalized.Length >= 2 &&
+            ((normalized[0] == '"' && normalized[^1] == '"') ||
+             (normalized[0] == '\'' && normalized[^1] == '\'')))
+        {
+            normalized = normalized[1..^1].Trim();
+        }
+
+        return normalized;
     }
 
     private async Task<string> GetStringAsync(string path, CancellationToken ct)

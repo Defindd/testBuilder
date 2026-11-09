@@ -114,7 +114,10 @@ Basic/Bearer-авторизация автоматически формируе�
 
 ### Проверить данные (Elma365)
 
-Использует `Elma365Client` и переменную с токеном (`elmaToken` по умолчанию).
+Токен можно ввести напрямую в поле **«Токен Elma365»** (Secret). Если оно пустое,
+блок берёт токен из переменной **«Переменная с токеном»** (`elmaToken` по умолчанию).
+Прямое поле имеет приоритет.
+
 Поле **Код приложения** соответствует `{code}` в URL. Поддерживаются два режима:
 
 - **По ID** — `GET /pub/v1/app/{namespace}/{code}/{id}/get`;
@@ -130,6 +133,9 @@ Basic/Bearer-авторизация автоматически формируе�
 
 - `Fixed` — пауза `Duration` плюс случайный джиттер `±JitterMs`.
 - `UntilCondition` — опрос выражения до `MaxWait` с интервалом `PollInterval`.
+
+Поля длительности принимают `60` (секунды), `60с`, `1m`, `00:01:00` или
+`0.00:01:00`. В `.tbtest` значение сохраняется в формате `c`.
 
 ## Формат `.tbtest`
 
@@ -206,7 +212,7 @@ samples/
 - `sample-json-variable` — сохранение JSON запроса в `requestJson` и вставка
   `{$requestJson.customer.name}` в тело следующего запроса.
 - `sample-elma365` — заготовка `CheckDataBlock`; замените `your_app`, App Code,
-  `REPLACE_WITH_TOKEN`, `REPLACE_WITH_OBJECT_ID` и BaseUrl.
+  токен, `REPLACE_WITH_OBJECT_ID` и BaseUrl.
 
 Запуск sample через CLI:
 
