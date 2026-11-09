@@ -1,0 +1,35 @@
+{
+  "name": "Sample Elma365",
+  "environment": {
+    "name": "stage",
+    "variables": {
+      "baseUrl": "https://your-elma365.example",
+      "elmaToken": "REPLACE_WITH_TOKEN",
+      "orderId": "REPLACE_WITH_OBJECT_ID"
+    }
+  },
+  "variables": {},
+  "blocks": [
+    {
+      "$type": "checkData",
+      "id": "33333333-3333-4333-8333-333333333331",
+      "title": "Проверить заказ в Elma365",
+      "enabled": true,
+      "baseUrl": "{{baseUrl}}",
+      "authTokenVariable": "elmaToken",
+      "appNamespace": "your_app",
+      "appCode": "order",
+      "searchMode": "byObjectId",
+      "objectId": "{{orderId}}",
+      "filter": "",
+      "fieldChecks": [
+        {
+          "path": "$.status",
+          "operator": "equals",
+          "expectedValue": "active"
+        }
+      ],
+      "saveObjectVariable": "elmaOrder"
+    }
+  ]
+}

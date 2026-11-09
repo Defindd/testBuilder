@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>TestBuilder.Blocks</RootNamespace>
+    <AssemblyName>TestBuilder.Blocks</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TestBuilder.Core\TestBuilder.Core.csproj" />
+    <ProjectReference Include="..\TestBuilder.Elma365\TestBuilder.Elma365.csproj" />
+  </ItemGroup>
+
+</Project>

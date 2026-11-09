@@ -1,0 +1,5 @@
+{
+  "configProperties": {
+    "MSTest.EnableParentProcessQuery": "false"
+  }
+}

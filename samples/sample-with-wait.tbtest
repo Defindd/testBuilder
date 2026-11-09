@@ -1,0 +1,88 @@
+{
+  "name": "Sample With Wait",
+  "environment": {
+    "name": "public",
+    "variables": {
+      "baseUrl": "https://httpbin.org"
+    }
+  },
+  "variables": {},
+  "blocks": [
+    {
+      "$type": "apiRequest",
+      "id": "22222222-2222-4222-8222-222222222221",
+      "title": "POST /post",
+      "enabled": true,
+      "method": "POST",
+      "url": "{{baseUrl}}/post",
+      "headers": [],
+      "queryParams": [],
+      "bodyType": "json",
+      "body": "{\"name\":\"test\"}",
+      "authType": "none",
+      "authUser": "",
+      "authPassword": "",
+      "authToken": "",
+      "authApiKeyName": "",
+      "authApiKeyValue": "",
+      "timeoutSeconds": 30,
+      "responseChecks": [
+        {
+          "path": "$.json.name",
+          "operator": "equals",
+          "expectedValue": "test"
+        }
+      ],
+      "saveResponseVariable": "firstResponse"
+    },
+    {
+      "$type": "wait",
+      "id": "22222222-2222-4222-8222-222222222222",
+      "title": "Пауза 2 секунды",
+      "enabled": true,
+      "mode": "fixed",
+      "duration": "00:00:02",
+      "conditionExpression": "",
+      "maxWait": "00:00:30",
+      "pollInterval": "00:00:00.5000000",
+      "jitterMs": 0
+    },
+    {
+      "$type": "apiRequest",
+      "id": "22222222-2222-4222-8222-222222222223",
+      "title": "GET /get после паузы",
+      "enabled": true,
+      "method": "GET",
+      "url": "{{baseUrl}}/get",
+      "headers": [],
+      "queryParams": [
+        {
+          "key": "sample",
+          "value": "after-wait"
+        }
+      ],
+      "bodyType": "none",
+      "body": "",
+      "authType": "none",
+      "authUser": "",
+      "authPassword": "",
+      "authToken": "",
+      "authApiKeyName": "",
+      "authApiKeyValue": "",
+      "timeoutSeconds": 30,
+      "responseChecks": [
+        {
+          "path": "$status",
+          "operator": "equals",
+          "expectedValue": "200"
+        },
+        {
+          "path": "$.args.sample",
+          "operator": "equals",
+          "expectedValue": "after-wait"
+        }
+      ],
+      "saveResponseVariable": "secondResponse"
+    }
+  ]
+}

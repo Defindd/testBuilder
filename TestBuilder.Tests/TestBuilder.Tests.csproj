@@ -1,0 +1,58 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!--
+      net8.0         — кроссплатформенные тесты Core/Blocks/Elma365/Runner (Linux CI).
+      net8.0-windows — дополнительно smoke-тест WinForms-контрола (Windows CI).
+    -->
+    <TargetFrameworks>net8.0;net8.0-windows</TargetFrameworks>
+    <UseWindowsForms Condition="'$(TargetFramework)' == 'net8.0-windows'">true</UseWindowsForms>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <GenerateRuntimeConfigurationFiles>true</GenerateRuntimeConfigurationFiles>
+    <RootNamespace>TestBuilder.Tests</RootNamespace>
+    <AssemblyName>TestBuilder.Tests</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.2">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="FluentAssertions" Version="6.12.2" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="WireMock.Net" Version="1.6.5" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TestBuilder.Core\TestBuilder.Core.csproj" />
+    <ProjectReference Include="..\TestBuilder.Blocks\TestBuilder.Blocks.csproj" />
+    <ProjectReference Include="..\TestBuilder.Elma365\TestBuilder.Elma365.csproj" />
+    <ProjectReference Include="..\TestBuilder.Runner\TestBuilder.Runner.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net8.0-windows'">
+    <ProjectReference Include="..\TestBuilder.UI\TestBuilder.UI.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' != 'net8.0-windows'">
+    <Compile Remove="UI\**\*.cs" />
+  </ItemGroup>
+
+  <!--
+    runtimeconfig.template.json disables the testhost parent-process watchdog.
+    In sandboxed hosts OpenProcess can fail with Win32Exception (5) and abort the entire test run.
+  -->
+
+  <Target Name="ConfigureTestHostParentProcessQuery" BeforeTargets="GenerateBuildRuntimeConfigurationFiles">
+    <ItemGroup>
+      <RuntimeHostConfigurationOption Remove="MSTest.EnableParentProcessQuery" />
+    </ItemGroup>
+  </Target>
+
+</Project>

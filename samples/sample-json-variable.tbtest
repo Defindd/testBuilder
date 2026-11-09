@@ -1,0 +1,78 @@
+{
+  "name": "Sample JSON variable",
+  "environment": {
+    "name": "public",
+    "variables": {}
+  },
+  "variables": {},
+  "blocks": [
+    {
+      "$type": "apiRequest",
+      "id": "66666666-6666-4666-8666-666666666666",
+      "title": "POST source JSON",
+      "enabled": true,
+      "method": "POST",
+      "url": "https://httpbin.org/post",
+      "headers": [],
+      "queryParams": [],
+      "bodyType": "json",
+      "body": "{\"customer\":{\"name\":\"Ann\",\"id\":42}}",
+      "saveRequestJson": true,
+      "saveRequestJsonVariable": "requestJson",
+      "authType": "none",
+      "authUser": "",
+      "authPassword": "",
+      "authToken": "",
+      "authApiKeyName": "",
+      "authApiKeyValue": "",
+      "timeoutSeconds": 30,
+      "responseChecks": [
+        {
+          "path": "$status",
+          "operator": "equals",
+          "expectedValue": "200"
+        }
+      ],
+      "saveResponseVariable": ""
+    },
+    {
+      "$type": "apiRequest",
+      "id": "77777777-7777-4777-8777-777777777777",
+      "title": "POST copied JSON",
+      "enabled": true,
+      "method": "POST",
+      "url": "https://httpbin.org/post",
+      "headers": [],
+      "queryParams": [],
+      "bodyType": "json",
+      "body": "{\"copy\":{$requestJson.customer},\"customerName\":{$requestJson.customer.name}}",
+      "saveRequestJson": false,
+      "saveRequestJsonVariable": "",
+      "authType": "none",
+      "authUser": "",
+      "authPassword": "",
+      "authToken": "",
+      "authApiKeyName": "",
+      "authApiKeyValue": "",
+      "timeoutSeconds": 30,
+      "responseChecks": [
+        {
+          "path": "$status",
+          "operator": "equals",
+          "expectedValue": "200"
+        },
+        {
+          "path": "$.json.copy.name",
+          "operator": "equals",
+          "expectedValue": "Ann"
+        },
+        {
+          "path": "$.json.customerName",
+          "operator": "equals",
+          "expectedValue": "Ann"
+        }
+      ],
+      "saveResponseVariable": ""
+    }
+  ]
+}
