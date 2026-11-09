@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using TestBuilder.Core.Blocks;
@@ -246,6 +247,14 @@ public sealed class MainForm : Form
         _logGrid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Статус", FillWeight = 12 });
         _logGrid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Длительность", FillWeight = 12 });
         _logGrid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Сообщение", FillWeight = 42 });
+        _logGrid.Columns.Add(new DataGridViewButtonColumn
+        {
+            HeaderText = "Запрос",
+            FillWeight = 8,
+            FlatStyle = FlatStyle.Flat,
+            UseColumnTextForButtonValue = false,
+        });
+        _logGrid.CellContentClick += OnLogCellContentClick;
 
         var logGroup = new GroupBox
         {
@@ -817,7 +826,8 @@ public sealed class MainForm : Form
             GetStatusText(progress.Status),
             duration,
             message,
-            GetStatusColor(progress.Status));
+            GetStatusColor(progress.Status),
+            progress.Result?.Output);
     }
 
     private void AppendLog(
@@ -826,18 +836,111 @@ public sealed class MainForm : Form
         string status,
         string duration,
         string message,
-        Color? color = null)
+        Color? color = null,
+        IReadOnlyDictionary<string, object>? output = null)
     {
-        var rowIndex = _logGrid.Rows.Add(time, step, status, duration, message);
+        var details = output is null ? null : BuildLogDetails(output);
+        var hasDetails = !string.IsNullOrWhiteSpace(details);
+        var rowIndex = _logGrid.Rows.Add(
+            time,
+            step,
+            status,
+            duration,
+            message,
+            hasDetails ? "+" : string.Empty);
+
+        var row = _logGrid.Rows[rowIndex];
         if (color is not null)
         {
-            _logGrid.Rows[rowIndex].DefaultCellStyle.BackColor = color.Value;
+            row.DefaultCellStyle.BackColor = color.Value;
+        }
+
+        if (hasDetails)
+        {
+            row.Tag = new LogRowDetails(
+                message,
+                message + Environment.NewLine + Environment.NewLine + details);
         }
 
         if (rowIndex >= 0)
         {
             _logGrid.FirstDisplayedScrollingRowIndex = rowIndex;
         }
+    }
+
+    private static string? BuildLogDetails(IReadOnlyDictionary<string, object> output)
+    {
+        var method = GetOutputText(output, "requestMethod");
+        var url = GetOutputText(output, "requestUrl");
+        var requestBody = GetOutputText(output, "requestBody");
+        var responseBody = GetOutputText(output, "responseBody");
+        var statusCode = GetOutputText(output, "statusCode");
+
+        if (method.Length == 0 &&
+            url.Length == 0 &&
+            requestBody.Length == 0 &&
+            responseBody.Length == 0)
+        {
+            return null;
+        }
+
+        var builder = new StringBuilder();
+        if (method.Length > 0 || url.Length > 0)
+        {
+            builder.AppendLine("Запрос:");
+            builder.AppendLine($"{method} {url}".Trim());
+        }
+
+        if (requestBody.Length > 0)
+        {
+            builder.AppendLine();
+            builder.AppendLine("Тело запроса:");
+            builder.AppendLine(requestBody);
+        }
+
+        if (responseBody.Length > 0 || statusCode.Length > 0)
+        {
+            builder.AppendLine();
+            builder.AppendLine(statusCode.Length > 0
+                ? $"Ответ Elma365 (HTTP {statusCode}):"
+                : "Ответ Elma365:");
+            if (responseBody.Length > 0)
+            {
+                builder.AppendLine(responseBody);
+            }
+        }
+
+        return builder.ToString().TrimEnd();
+    }
+
+    private static string GetOutputText(
+        IReadOnlyDictionary<string, object> output,
+        string key)
+    {
+        return output.TryGetValue(key, out var value)
+            ? Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty
+            : string.Empty;
+    }
+
+    private void OnLogCellContentClick(object? sender, DataGridViewCellEventArgs e)
+    {
+        if (e.RowIndex < 0 || e.ColumnIndex != _logGrid.Columns.Count - 1)
+        {
+            return;
+        }
+
+        var row = _logGrid.Rows[e.RowIndex];
+        if (row.Tag is not LogRowDetails details)
+        {
+            return;
+        }
+
+        details.Expanded = !details.Expanded;
+        row.Cells[4].Value = details.Expanded
+            ? details.FullMessage
+            : details.ShortMessage;
+        row.Cells[5].Value = details.Expanded ? "−" : "+";
+        _logGrid.AutoResizeRow(e.RowIndex, DataGridViewAutoSizeRowMode.AllCells);
     }
 
     private void SetRunning(bool running)
@@ -1060,5 +1163,20 @@ public sealed class MainForm : Form
     private void ShowError(string message)
     {
         MessageBox.Show(this, message, "Test Builder", MessageBoxButtons.OK, MessageBoxIcon.Error);
+    }
+
+    private sealed class LogRowDetails
+    {
+        public LogRowDetails(string shortMessage, string fullMessage)
+        {
+            ShortMessage = shortMessage;
+            FullMessage = fullMessage;
+        }
+
+        public string ShortMessage { get; }
+
+        public string FullMessage { get; }
+
+        public bool Expanded { get; set; }
     }
 }

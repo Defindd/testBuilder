@@ -146,6 +146,9 @@ public sealed class CheckDataBlock : ITestBlock, IValidatableBlock
         ArgumentNullException.ThrowIfNull(ctx);
 
         var stopwatch = Stopwatch.StartNew();
+        string? requestMethod = null;
+        string? requestUrl = null;
+        string? requestBody = null;
         try
         {
             var baseUrl = Resolve(ctx, BaseUrl).Trim();
@@ -184,6 +187,15 @@ public sealed class CheckDataBlock : ITestBlock, IValidatableBlock
             {
                 return Fail("Не задан фильтр для поиска объекта Elma365.", stopwatch.Elapsed);
             }
+
+            requestMethod = SearchMode == CheckDataSearchMode.ByObjectId ? "GET" : "POST";
+            requestUrl = BuildRequestUrl(
+                baseUrl,
+                appNamespace,
+                appCode,
+                objectId,
+                SearchMode);
+            requestBody = SearchMode == CheckDataSearchMode.ByFilter ? filter : null;
 
             var authToken = Resolve(ctx, AuthToken).Trim();
             if (authToken.Length == 0)
@@ -293,7 +305,11 @@ public sealed class CheckDataBlock : ITestBlock, IValidatableBlock
                     Success = false,
                     Message = message,
                     Duration = stopwatch.Elapsed,
-                    Output = output,
+                    Output = AddRequestDetails(
+                        output,
+                        requestMethod,
+                        requestUrl,
+                        requestBody),
                 };
             }
 
@@ -325,22 +341,46 @@ public sealed class CheckDataBlock : ITestBlock, IValidatableBlock
         catch (Elma365AuthException ex)
         {
             stopwatch.Stop();
-            return Fail($"Ошибка авторизации в Elma365: {ex.Message}", stopwatch.Elapsed, ex);
+            return Fail(
+                $"Ошибка авторизации в Elma365: {ex.Message}",
+                stopwatch.Elapsed,
+                ex,
+                requestMethod,
+                requestUrl,
+                requestBody);
         }
         catch (Elma365NotFoundException ex)
         {
             stopwatch.Stop();
-            return Fail($"Объект Elma365 не найден: {ex.Message}", stopwatch.Elapsed, ex);
+            return Fail(
+                $"Объект Elma365 не найден: {ex.Message}",
+                stopwatch.Elapsed,
+                ex,
+                requestMethod,
+                requestUrl,
+                requestBody);
         }
         catch (Elma365ServerException ex)
         {
             stopwatch.Stop();
-            return Fail($"Ошибка сервера Elma365: {ex.Message}", stopwatch.Elapsed, ex);
+            return Fail(
+                $"Ошибка сервера Elma365: {ex.Message}",
+                stopwatch.Elapsed,
+                ex,
+                requestMethod,
+                requestUrl,
+                requestBody);
         }
         catch (Elma365Exception ex)
         {
             stopwatch.Stop();
-            return Fail($"Ошибка Elma365: {ex.Message}", stopwatch.Elapsed, ex);
+            return Fail(
+                $"Ошибка Elma365: {ex.Message}",
+                stopwatch.Elapsed,
+                ex,
+                requestMethod,
+                requestUrl,
+                requestBody);
         }
     }
 
@@ -381,15 +421,59 @@ public sealed class CheckDataBlock : ITestBlock, IValidatableBlock
         return ctx.Templates.Resolve(value, ctx.Variables);
     }
 
+    private static string BuildRequestUrl(
+        string baseUrl,
+        string appNamespace,
+        string appCode,
+        string objectId,
+        CheckDataSearchMode searchMode)
+    {
+        var root = baseUrl.TrimEnd('/');
+        var prefix = Uri.EscapeDataString(appNamespace) + "/" + Uri.EscapeDataString(appCode);
+
+        return searchMode == CheckDataSearchMode.ByObjectId
+            ? $"{root}/pub/v1/app/{prefix}/{Uri.EscapeDataString(objectId)}/get"
+            : $"{root}/pub/v1/app/{prefix}/list";
+    }
+
+    private static Dictionary<string, object> AddRequestDetails(
+        Dictionary<string, object> output,
+        string? method,
+        string? url,
+        string? body)
+    {
+        if (!string.IsNullOrWhiteSpace(method))
+        {
+            output["requestMethod"] = method;
+        }
+
+        if (!string.IsNullOrWhiteSpace(url))
+        {
+            output["requestUrl"] = url;
+        }
+
+        if (!string.IsNullOrWhiteSpace(body))
+        {
+            output["requestBody"] = body;
+        }
+
+        return output;
+    }
+
     private static BlockResult Fail(
         string message,
         TimeSpan elapsed,
-        Elma365Exception? exception = null)
+        Elma365Exception? exception = null,
+        string? requestMethod = null,
+        string? requestUrl = null,
+        string? requestBody = null)
     {
         var output = new Dictionary<string, object>
         {
             ["durationMs"] = elapsed.TotalMilliseconds,
         };
+
+        AddRequestDetails(output, requestMethod, requestUrl, requestBody);
 
         if (exception is not null)
         {
@@ -397,6 +481,13 @@ public sealed class CheckDataBlock : ITestBlock, IValidatableBlock
             if (exception.StatusCode is not null)
             {
                 output["statusCode"] = exception.StatusCode.Value;
+            }
+
+            if (!string.IsNullOrWhiteSpace(exception.ResponseBody))
+            {
+                output["responseBody"] = exception.ResponseBody.Length > 8000
+                    ? exception.ResponseBody[..8000] + "…"
+                    : exception.ResponseBody;
             }
         }
 

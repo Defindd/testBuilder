@@ -76,6 +76,24 @@ public sealed class TemplateEngineTests
     }
 
     [Fact]
+    public void ResolveJson_AcceptsArrayIndexSyntax()
+    {
+        var engine = new TemplateEngine();
+        var variables = new Dictionary<string, object>
+        {
+            ["resp"] = JObject.Parse(
+                """{"result":{"result":[{"__id":"01930c40-8b29-7719-b91e-1fa24ba52e77"}],"total":1}}"""),
+        };
+
+        var json = engine.ResolveJson(
+            """{"id":{$resp.result.result[0].__id}}""",
+            variables);
+
+        JObject.Parse(json)["id"]!.Value<string>()
+            .Should().Be("01930c40-8b29-7719-b91e-1fa24ba52e77");
+    }
+
+    [Fact]
     public void ResolveJson_UnknownFragment_InsertsNull()
     {
         var engine = new TemplateEngine();

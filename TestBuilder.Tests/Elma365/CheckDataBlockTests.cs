@@ -301,6 +301,49 @@ public sealed class CheckDataBlockTests
 
         result.Success.Should().BeFalse();
         result.Message.Should().Contain("не найден");
+        result.Output.Should().ContainKey("requestMethod");
+        result.Output["requestMethod"].Should().Be("POST");
+        result.Output.Should().ContainKey("requestUrl");
+        result.Output["requestUrl"].Should().Be(
+            BaseUrl(server) + "/pub/v1/app/orders/order/list");
+        result.Output.Should().ContainKey("requestBody");
+        result.Output["requestBody"].Should().Be(filter);
+    }
+
+    [Fact]
+    public async Task BadRequest_IncludesRequestAndResponseBodyInOutput()
+    {
+        const string filter = """{"filter":{"tf":{"status":"active"}}}""";
+        const string responseBody = """{"error":"bad filter"}""";
+
+        using var server = WireMockServer.Start();
+        server.Given(
+                Request.Create()
+                    .WithPath("/pub/v1/app/orders/order/list")
+                    .UsingPost()
+                    .WithBody(filter))
+            .RespondWith(
+                Response.Create()
+                    .WithStatusCode(400)
+                    .WithHeader("Content-Type", "application/json")
+                    .WithBody(responseBody));
+
+        using var httpClient = new HttpClient();
+        var block = new CheckDataBlock
+        {
+            BaseUrl = BaseUrl(server),
+            AppNamespace = "orders",
+            AppCode = "order",
+            SearchMode = CheckDataSearchMode.ByFilter,
+            Filter = filter,
+        };
+
+        var result = await block.ExecuteAsync(CreateContext(httpClient, CreateVariables()));
+
+        result.Success.Should().BeFalse();
+        result.Output["requestBody"].Should().Be(filter);
+        result.Output["responseBody"].Should().Be(responseBody);
+        result.Output["statusCode"].Should().Be(400);
     }
 
     private static void MockObject(

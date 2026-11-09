@@ -26,7 +26,15 @@ public sealed class TemplateEngine
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     private static readonly Regex JsonFragmentRegex = new(
-        @"\{\$\s*([\w\.\-]+)\s*\}",
+        @"\{\$\s*([\w\.\-\[\]']+)\s*\}",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+    private static readonly Regex JsonArrayIndexRegex = new(
+        @"\[(\d+)\]",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+    private static readonly Regex JsonQuotedSegmentRegex = new(
+        @"\['([^']+)'\]",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     private readonly ILogger<TemplateEngine> _logger;
@@ -110,7 +118,14 @@ public sealed class TemplateEngine
         return JsonFragmentRegex.Replace(resolved, match =>
         {
             var expression = match.Groups[1].Value;
-            var segments = expression.Split('.', StringSplitOptions.RemoveEmptyEntries);
+            var normalizedExpression = JsonArrayIndexRegex.Replace(expression, ".$1");
+            normalizedExpression = JsonQuotedSegmentRegex.Replace(
+                normalizedExpression,
+                ".$1");
+
+            var segments = normalizedExpression.Split(
+                '.',
+                StringSplitOptions.RemoveEmptyEntries);
             if (segments.Length == 0)
             {
                 return "null";
