@@ -291,6 +291,35 @@ public sealed class ApiRequestBlockTests
         secondResult.Success.Should().BeTrue(secondResult.Message);
     }
 
+    [Fact]
+    public async Task SaveRequestJson_StoresResolvedRandomValueAndBoolean()
+    {
+        using var server = WireMockServer.Start();
+        server.Given(Request.Create().WithPath("/save-types").UsingPost())
+            .RespondWith(Response.Create().WithStatusCode(200));
+
+        using var httpClient = new HttpClient();
+        var context = CreateContext(httpClient);
+        var block = new ApiRequestBlock
+        {
+            Method = HttpMethodType.Post,
+            Url = BaseUrl(server) + "/save-types",
+            BodyType = HttpBodyType.Json,
+            Body = """{"field1":"{{random.uuid}}","field2":true,"field3":"qwerty"}""",
+            SaveRequestJson = true,
+            SaveRequestJsonVariable = "requestJson",
+            TimeoutSeconds = 10,
+        };
+
+        var result = await block.ExecuteAsync(context);
+
+        result.Success.Should().BeTrue(result.Message);
+        var saved = context.Variables["requestJson"].Should().BeOfType<JObject>().Which;
+        Guid.TryParse(saved.Value<string>("field1"), out _).Should().BeTrue();
+        saved.Value<bool>("field2").Should().BeTrue();
+        saved.Value<string>("field1").Should().NotContain("{{");
+    }
+
     private static string BaseUrl(WireMockServer server)
     {
         return (server.Url ?? throw new InvalidOperationException("WireMock server URL is not available."))

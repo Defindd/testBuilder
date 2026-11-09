@@ -16,7 +16,7 @@
       "headers": [],
       "queryParams": [],
       "bodyType": "json",
-      "body": "{\"customer\":{\"name\":\"Ann\",\"id\":42}}",
+      "body": "{\"customer\":{\"name\":\"Ann\",\"id\":42},\"active\":true}",
       "saveRequestJson": true,
       "saveRequestJsonVariable": "requestJson",
       "authType": "none",
@@ -45,7 +45,7 @@
       "headers": [],
       "queryParams": [],
       "bodyType": "json",
-      "body": "{\"copy\":{$requestJson.customer},\"customerName\":{$requestJson.customer.name}}",
+      "body": "{\"copy\":{$requestJson.customer},\"customerName\":{$requestJson.customer.name},\"active\":{$requestJson.active}}",
       "saveRequestJson": false,
       "saveRequestJsonVariable": "",
       "authType": "none",
@@ -70,6 +70,11 @@
           "path": "$.json.customerName",
           "operator": "equals",
           "expectedValue": "Ann"
+        },
+        {
+          "path": "$.json.active",
+          "operator": "equals",
+          "expectedValue": "true"
         }
       ],
       "saveResponseVariable": ""

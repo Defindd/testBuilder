@@ -4,6 +4,7 @@ using FluentAssertions;
 using TestBuilder.Blocks.Api;
 using TestBuilder.Blocks.Elma365;
 using TestBuilder.Blocks.Wait;
+using TestBuilder.Core.Scenarios;
 using TestBuilder.UI.Controls;
 using TestBuilder.UI.Json;
 using Xunit;
@@ -112,6 +113,47 @@ public sealed class PropertyInspectorControlTests
                 .Select(item => item.ToString())
                 .Should()
                 .Contain("requestJson.customer.name");
+        });
+    }
+
+    [Fact]
+    public void Bind_CheckDataFilter_SuggestsAllJsonFieldTypes()
+    {
+        RunOnSta(() =>
+        {
+            var scenario = new TestScenario
+            {
+                Blocks =
+                {
+                    new ApiRequestBlock
+                    {
+                        BodyType = HttpBodyType.Json,
+                        Body = """{"field1":"{{random.uuid}}","field2":true,"field3":"qwerty"}""",
+                        SaveRequestJson = true,
+                        SaveRequestJsonVariable = "requestJson",
+                    },
+                    new CheckDataBlock(),
+                },
+            };
+            var variables = JsonVariableCatalog.Build(scenario, beforeBlockIndex: 1);
+
+            using var control = new PropertyInspectorControl();
+            control.Bind(new CheckDataBlock(), variables);
+            var table = control.Controls.OfType<TableLayoutPanel>().Single();
+            var filterPanel = GetEditor<Control>(table, "Фильтр");
+            var filterBox = Descendants(filterPanel).OfType<TextBox>().Single();
+            var suggestions = Descendants(filterPanel).OfType<ListBox>().Single();
+
+            filterBox.Text = string.Empty;
+            filterBox.SelectionStart = 0;
+            filterBox.AppendText("{$requestJson.");
+
+            var items = suggestions.Items.Cast<object>()
+                .Select(item => item.ToString())
+                .ToArray();
+            items.Should().Contain("requestJson.field1");
+            items.Should().Contain("requestJson.field2");
+            items.Should().Contain("requestJson.field3");
         });
     }
 

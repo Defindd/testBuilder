@@ -261,7 +261,7 @@ public sealed class ApiRequestBlock : ITestBlock, IValidatableBlock
 
         try
         {
-            request = BuildRequest(ctx);
+            request = BuildRequest(ctx, out var requestJsonBody);
 
             using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(TimeoutSeconds));
             using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
@@ -271,6 +271,11 @@ public sealed class ApiRequestBlock : ITestBlock, IValidatableBlock
             using var response = await ctx.HttpClient
                 .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, linkedCts.Token)
                 .ConfigureAwait(false);
+
+            if (SaveRequestJson && requestJsonBody is not null)
+            {
+                StoreRequestJson(ctx, requestJsonBody);
+            }
 
             var bodyText = await response.Content
                 .ReadAsStringAsync(linkedCts.Token)
@@ -372,7 +377,9 @@ public sealed class ApiRequestBlock : ITestBlock, IValidatableBlock
         }
     }
 
-    private HttpRequestMessage BuildRequest(ExecutionContext ctx)
+    private HttpRequestMessage BuildRequest(
+        ExecutionContext ctx,
+        out string? requestJsonBody)
     {
         var url = Resolve(ctx, Url).Trim();
         if (string.IsNullOrWhiteSpace(url))
@@ -403,11 +410,9 @@ public sealed class ApiRequestBlock : ITestBlock, IValidatableBlock
                 : Resolve(ctx, Body);
 
             request.Content = BuildContent(bodyText);
-
-            if (BodyType == HttpBodyType.Json && SaveRequestJson)
-            {
-                StoreRequestJson(ctx, bodyText);
-            }
+            requestJsonBody = BodyType == HttpBodyType.Json && SaveRequestJson
+                ? bodyText
+                : null;
 
             ApplyHeaders(ctx, request);
             ApplyAuth(ctx, request);

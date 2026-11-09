@@ -13,6 +13,31 @@ namespace TestBuilder.Tests.UI;
 public sealed class JsonVariableCatalogTests
 {
     [Fact]
+    public void Build_IncludesBooleanStringAndTemplateFields()
+    {
+        var scenario = new TestScenario
+        {
+            Blocks =
+            {
+                new ApiRequestBlock
+                {
+                    BodyType = HttpBodyType.Json,
+                    Body = """{"field1":"{{random.uuid}}","field2":true,"field3":"qwerty"}""",
+                    SaveRequestJson = true,
+                    SaveRequestJsonVariable = "requestJson",
+                },
+                new WaitBlock(),
+            },
+        };
+
+        var paths = JsonVariableCatalog.Build(scenario, beforeBlockIndex: 1)[0].Paths;
+
+        paths.Should().Contain("requestJson.field1");
+        paths.Should().Contain("requestJson.field2");
+        paths.Should().Contain("requestJson.field3");
+    }
+
+    [Fact]
     public void Build_IncludesOnlyPrecedingSavedRequestJsonVariables()
     {
         var scenario = new TestScenario
