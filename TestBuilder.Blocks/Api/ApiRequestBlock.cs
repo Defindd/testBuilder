@@ -261,7 +261,9 @@ public sealed class ApiRequestBlock : ITestBlock, IValidatableBlock
 
         try
         {
-            request = BuildRequest(ctx, out var requestJsonBody);
+            request = BuildRequest(ctx, out var requestBody);
+            var requestMethod = request.Method.Method;
+            var requestUrl = request.RequestUri?.ToString() ?? string.Empty;
 
             using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(TimeoutSeconds));
             using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
@@ -272,9 +274,9 @@ public sealed class ApiRequestBlock : ITestBlock, IValidatableBlock
                 .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, linkedCts.Token)
                 .ConfigureAwait(false);
 
-            if (SaveRequestJson && requestJsonBody is not null)
+            if (SaveRequestJson && requestBody is not null)
             {
-                StoreRequestJson(ctx, requestJsonBody);
+                StoreRequestJson(ctx, requestBody);
             }
 
             var bodyText = await response.Content
@@ -282,7 +284,14 @@ public sealed class ApiRequestBlock : ITestBlock, IValidatableBlock
                 .ConfigureAwait(false);
 
             stopwatch.Stop();
-            return EvaluateResponse(ctx, response, bodyText, stopwatch.Elapsed);
+            return EvaluateResponse(
+                ctx,
+                response,
+                bodyText,
+                requestMethod,
+                requestUrl,
+                requestBody,
+                stopwatch.Elapsed);
         }
         catch (OperationCanceledException) when (!ctx.CancellationToken.IsCancellationRequested)
         {
@@ -379,7 +388,7 @@ public sealed class ApiRequestBlock : ITestBlock, IValidatableBlock
 
     private HttpRequestMessage BuildRequest(
         ExecutionContext ctx,
-        out string? requestJsonBody)
+        out string? requestBody)
     {
         var url = Resolve(ctx, Url).Trim();
         if (string.IsNullOrWhiteSpace(url))
@@ -410,9 +419,7 @@ public sealed class ApiRequestBlock : ITestBlock, IValidatableBlock
                 : Resolve(ctx, Body);
 
             request.Content = BuildContent(bodyText);
-            requestJsonBody = BodyType == HttpBodyType.Json && SaveRequestJson
-                ? bodyText
-                : null;
+            requestBody = bodyText;
 
             ApplyHeaders(ctx, request);
             ApplyAuth(ctx, request);
@@ -532,6 +539,9 @@ public sealed class ApiRequestBlock : ITestBlock, IValidatableBlock
         ExecutionContext ctx,
         HttpResponseMessage response,
         string bodyText,
+        string requestMethod,
+        string requestUrl,
+        string? requestBody,
         TimeSpan elapsed)
     {
         var statusCode = (int)response.StatusCode;
@@ -542,10 +552,19 @@ public sealed class ApiRequestBlock : ITestBlock, IValidatableBlock
         var output = new Dictionary<string, object>
         {
             ["status"] = statusCode,
+            ["statusCode"] = statusCode,
             ["headers"] = CollectHeaders(response),
             ["body"] = Truncate(bodyText, BodyLogLimit),
+            ["responseBody"] = Truncate(bodyText, BodyLogLimit),
             ["bodyLength"] = bodyText.Length,
+            ["requestMethod"] = requestMethod,
+            ["requestUrl"] = requestUrl,
         };
+
+        if (!string.IsNullOrWhiteSpace(requestBody))
+        {
+            output["requestBody"] = Truncate(requestBody, BodyLogLimit);
+        }
 
         var jsonBody = TryParseJson(bodyText);
         var saveVariable = Resolve(ctx, SaveResponseVariable).Trim();

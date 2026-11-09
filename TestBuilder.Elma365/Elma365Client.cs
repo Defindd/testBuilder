@@ -26,6 +26,12 @@ public sealed class Elma365Client
     private readonly ILogger _logger;
 
     /// <summary>
+    /// Тело последнего успешного HTTP-ответа. Используется блоком для отображения
+    /// деталей успешного шага в логе.
+    /// </summary>
+    public string? LastResponseBody { get; private set; }
+
+    /// <summary>
     /// Создаёт клиент Elma365.
     /// </summary>
     /// <param name="http">HTTP-клиент.</param>
@@ -238,6 +244,7 @@ public sealed class Elma365Client
 
                 if (response.IsSuccessStatusCode)
                 {
+                    LastResponseBody = body;
                     return body;
                 }
 
@@ -294,6 +301,7 @@ public sealed class Elma365Client
 
             if (response.IsSuccessStatusCode)
             {
+                LastResponseBody = body;
                 return body;
             }
 

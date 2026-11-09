@@ -249,7 +249,7 @@ public sealed class MainForm : Form
         _logGrid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Сообщение", FillWeight = 42 });
         _logGrid.Columns.Add(new DataGridViewButtonColumn
         {
-            HeaderText = "Запрос",
+            HeaderText = "Детали",
             FillWeight = 8,
             FlatStyle = FlatStyle.Flat,
             UseColumnTextForButtonValue = false,

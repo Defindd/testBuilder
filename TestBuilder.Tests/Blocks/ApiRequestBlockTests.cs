@@ -39,6 +39,12 @@ public sealed class ApiRequestBlockTests
         result.Success.Should().BeTrue(result.Message);
         result.Output.Should().ContainKey("status");
         result.Output["status"].Should().Be(200);
+        result.Output.Should().ContainKey("statusCode");
+        result.Output["statusCode"].Should().Be(200);
+        result.Output.Should().ContainKey("requestMethod");
+        result.Output["requestMethod"].Should().Be("GET");
+        result.Output["requestUrl"].Should().Be(BaseUrl(server) + "/ok");
+        result.Output.Should().ContainKey("responseBody");
     }
 
     [Fact]

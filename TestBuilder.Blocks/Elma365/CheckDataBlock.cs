@@ -282,14 +282,27 @@ public sealed class CheckDataBlock : ITestBlock, IValidatableBlock
                 }
             }
 
-            var output = new Dictionary<string, object>
+            var output = AddRequestDetails(
+                new Dictionary<string, object>
+                {
+                    ["namespace"] = appNamespace,
+                    ["appCode"] = appCode,
+                    ["searchMode"] = SearchMode.ToString(),
+                    ["objectId"] = objectId,
+                    ["statusCode"] = 200,
+                    ["durationMs"] = stopwatch.Elapsed.TotalMilliseconds,
+                },
+                requestMethod,
+                requestUrl,
+                requestBody);
+
+            var responseBody = client.LastResponseBody ?? obj.ToString(Formatting.None);
+            if (!string.IsNullOrWhiteSpace(responseBody))
             {
-                ["namespace"] = appNamespace,
-                ["appCode"] = appCode,
-                ["searchMode"] = SearchMode.ToString(),
-                ["objectId"] = objectId,
-                ["durationMs"] = stopwatch.Elapsed.TotalMilliseconds,
-            };
+                output["responseBody"] = responseBody.Length > 8000
+                    ? responseBody[..8000] + "…"
+                    : responseBody;
+            }
 
             if (failures.Count > 0)
             {
@@ -305,11 +318,7 @@ public sealed class CheckDataBlock : ITestBlock, IValidatableBlock
                     Success = false,
                     Message = message,
                     Duration = stopwatch.Elapsed,
-                    Output = AddRequestDetails(
-                        output,
-                        requestMethod,
-                        requestUrl,
-                        requestBody),
+                    Output = output,
                 };
             }
 

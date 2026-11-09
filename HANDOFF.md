@@ -52,6 +52,7 @@
 - `GetObjectAsync`, `FindObjectAsync`, `GetObjectTypesAsync`, `GetObjectSchemaAsync`.
 - `FindObjectAsync` проверяет JSON фильтра до запроса и считает `result.total = 0` / пустой `result.result` ошибкой «не найден».
 - При ошибке Elma365 в лог-строке доступна кнопка «+»: метод, URL, тело запроса и тело ответа.
+- Для успешных API-шагов и шагов Elma365 кнопка «Детали» также показывает отправленный JSON и полученный ответ.
 
 ### UI
 

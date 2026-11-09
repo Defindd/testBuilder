@@ -206,6 +206,13 @@ public sealed class CheckDataBlockTests
         result.Success.Should().BeTrue(result.Message);
         variables["filteredOrder"].Should().BeOfType<JObject>();
         ((JObject)variables["filteredOrder"]).Value<string>("id").Should().Be("42");
+        result.Output.Should().ContainKey("requestMethod");
+        result.Output["requestMethod"].Should().Be("POST");
+        result.Output.Should().ContainKey("requestBody");
+        result.Output["requestBody"].Should().Be(filter);
+        result.Output.Should().ContainKey("responseBody");
+        result.Output["responseBody"].Should().BeOfType<string>()
+            .Which.Should().Contain("\"id\"");
     }
 
     [Fact]
